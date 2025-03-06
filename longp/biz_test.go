@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/banbox/banexg/bex"
+	"github.com/stretchr/testify/assert"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -279,4 +280,182 @@ func TestFetchOHLCV(t *testing.T) {
 	}
 
 	logx.Info("OHLCV test completed successfully")
+}
+
+func TestFetchOrderBook(t *testing.T) {
+	exg := createTestExchange(t)
+	defer exg.Close()
+
+	// 测试获取订单簿
+	symbol := "700.HK"
+	limit := 10
+
+	logx.Infof("Starting order book test for symbol: %s, limit: %d", symbol, limit)
+
+	orderBook, err := exg.FetchOrderBook(symbol, limit, nil)
+	if err != nil {
+		logx.Errorf("Failed to fetch order book: %v", err)
+		t.Fatalf("Failed to fetch order book: %v", err)
+	}
+
+	// 验证返回的订单簿数据
+	if orderBook == nil {
+		logx.Error("Order book should not be nil")
+		t.Fatal("Order book should not be nil")
+	}
+
+	// 验证基本字段
+	if orderBook.Symbol != symbol {
+		t.Errorf("Expected symbol %s, got %s", symbol, orderBook.Symbol)
+	}
+	if orderBook.TimeStamp <= 0 {
+		t.Error("Timestamp should be positive")
+	}
+	if orderBook.Limit != limit {
+		t.Errorf("Expected limit %d, got %d", limit, orderBook.Limit)
+	}
+
+	// 验证买卖盘
+	if orderBook.Bids == nil {
+		t.Error("Bids should not be nil")
+	}
+	if orderBook.Asks == nil {
+		t.Error("Asks should not be nil")
+	}
+
+	// 验证买卖盘数据
+	if len(orderBook.Bids.Price) != len(orderBook.Bids.Size) {
+		t.Error("Bids price and size arrays should have the same length")
+	}
+	if len(orderBook.Asks.Price) != len(orderBook.Asks.Size) {
+		t.Error("Asks price and size arrays should have the same length")
+	}
+
+	// 打印订单簿数据
+	logx.Infof("Order book for %s:", symbol)
+	logx.Infof("Bids: %d levels", len(orderBook.Bids.Price))
+	for i := 0; i < len(orderBook.Bids.Price); i++ {
+		logx.Infof("  Price: %.2f, Size: %.2f", orderBook.Bids.Price[i], orderBook.Bids.Size[i])
+	}
+	logx.Infof("Asks: %d levels", len(orderBook.Asks.Price))
+	for i := 0; i < len(orderBook.Asks.Price); i++ {
+		logx.Infof("  Price: %.2f, Size: %.2f", orderBook.Asks.Price[i], orderBook.Asks.Size[i])
+	}
+
+	// 验证价格排序
+	for i := 1; i < len(orderBook.Bids.Price); i++ {
+		if orderBook.Bids.Price[i] > orderBook.Bids.Price[i-1] {
+			t.Errorf("Bids should be in descending order, got %.2f > %.2f",
+				orderBook.Bids.Price[i], orderBook.Bids.Price[i-1])
+		}
+	}
+	for i := 1; i < len(orderBook.Asks.Price); i++ {
+		if orderBook.Asks.Price[i] < orderBook.Asks.Price[i-1] {
+			t.Errorf("Asks should be in ascending order, got %.2f < %.2f",
+				orderBook.Asks.Price[i], orderBook.Asks.Price[i-1])
+		}
+	}
+
+	logx.Info("Order book test completed successfully")
+}
+
+func TestCancelOrder(t *testing.T) {
+	// 创建测试实例
+	e := createTestExchange(t)
+	defer e.Close()
+
+	// 创建订单
+	order, err := e.CreateOrder("700.HK", "limit", "buy", 100, 100.0, nil)
+	if err != nil {
+		t.Fatalf("创建订单失败: %v", err)
+	}
+
+	// 取消订单
+	cancelledOrder, err := e.CancelOrder(order.ID, order.Symbol, nil)
+	if err != nil {
+		t.Fatalf("取消订单失败: %v", err)
+	}
+
+	// 验证取消的订单数据
+	if cancelledOrder == nil {
+		t.Fatal("取消的订单数据为空")
+	}
+
+	// 验证基本字段
+	if cancelledOrder.ID != order.ID {
+		t.Errorf("订单ID不匹配: 期望=%s, 实际=%s", order.ID, cancelledOrder.ID)
+	}
+	if cancelledOrder.Symbol != order.Symbol {
+		t.Errorf("交易对不匹配: 期望=%s, 实际=%s", order.Symbol, cancelledOrder.Symbol)
+	}
+	if cancelledOrder.Type != order.Type {
+		t.Errorf("订单类型不匹配: 期望=%s, 实际=%s", order.Type, cancelledOrder.Type)
+	}
+	if cancelledOrder.Side != order.Side {
+		t.Errorf("订单方向不匹配: 期望=%s, 实际=%s", order.Side, cancelledOrder.Side)
+	}
+	if cancelledOrder.Price != order.Price {
+		t.Errorf("订单价格不匹配: 期望=%.2f, 实际=%.2f", order.Price, cancelledOrder.Price)
+	}
+	if cancelledOrder.Amount != order.Amount {
+		t.Errorf("订单数量不匹配: 期望=%.2f, 实际=%.2f", order.Amount, cancelledOrder.Amount)
+	}
+
+	// 验证状态
+	if cancelledOrder.Status != "canceled" {
+		t.Errorf("订单状态不正确: 期望=canceled, 实际=%s", cancelledOrder.Status)
+	}
+
+	// 验证时间戳
+	if cancelledOrder.Timestamp <= 0 {
+		t.Error("订单时间戳无效")
+	}
+
+	// 打印取消的订单数据
+	prettyJSON, _ := json.MarshalIndent(cancelledOrder, "", "  ")
+	t.Logf("取消的订单数据:\n%s", string(prettyJSON))
+}
+
+func TestGetLeverage(t *testing.T) {
+	// 创建测试实例
+	exchange := createTestExchange(t)
+	defer exchange.Close()
+
+	// 加载市场数据
+	markets, err := exchange.LoadMarkets(true, nil)
+	if err != nil {
+		t.Fatalf("Failed to load markets: %v", err)
+	}
+
+	// 验证市场数据已加载
+	if len(markets) == 0 {
+		t.Fatal("No markets loaded")
+	}
+
+	// 测试现货市场
+	t.Run("Spot Market", func(t *testing.T) {
+		// 确保市场存在
+		if _, ok := markets["700.HK"]; !ok {
+			t.Skip("Market 700.HK not found in test markets")
+		}
+		leverage, maxLeverage := exchange.GetLeverage("700.HK", 1000, "")
+		assert.Equal(t, 1.0, leverage)
+		assert.Equal(t, 1.0, maxLeverage)
+	})
+
+	// 测试不存在的市场
+	t.Run("Non-existent Market", func(t *testing.T) {
+		leverage, maxLeverage := exchange.GetLeverage("NONEXISTENT", 1000, "")
+		assert.Equal(t, 0.0, leverage)
+		assert.Equal(t, 0.0, maxLeverage)
+	})
+
+	// 测试合约市场
+	t.Run("Contract Market", func(t *testing.T) {
+		// 由于目前 GetLeverage 方法对合约市场返回 0,0
+		// 这里我们验证这个行为
+		leverage, maxLeverage := exchange.GetLeverage("BTC-USDT", 1000, "")
+		assert.Equal(t, 0.0, leverage)
+		assert.Equal(t, 0.0, maxLeverage)
+	})
 }

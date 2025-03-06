@@ -7,6 +7,7 @@ require (
 	github.com/h2non/gock v1.2.0
 	github.com/longportapp/openapi-go v0.16.1
 	github.com/shopspring/decimal v1.4.0
+	github.com/stretchr/testify v1.10.0
 	github.com/zeromicro/go-zero v1.8.1
 	go.uber.org/zap v1.27.0
 	golang.org/x/text v0.22.0
@@ -18,6 +19,7 @@ require (
 	github.com/Allenxuxu/ringbuffer v0.0.11 // indirect
 	github.com/BurntSushi/toml v1.3.2 // indirect
 	github.com/Netflix/go-env v0.0.0-20220526054621-78278af1949d // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542 // indirect
@@ -28,6 +30,7 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	go.opentelemetry.io/otel v1.24.0 // indirect
 	go.opentelemetry.io/otel/trace v1.24.0 // indirect
